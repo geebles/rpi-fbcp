@@ -4,7 +4,7 @@ This program used for copy primary framebuffer to secondary framebuffer (eg. FBT
 
 Notable Changes in this Fork
 ----------------------------
-* Copy synced to VSYNC (TODO)
+* Copy synced to VSYNC
 * Ability to skip every x frame (TODO)
 * Custom rotation (TODO)
 * Custom cropping/scaling (TODO)
