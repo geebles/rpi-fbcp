@@ -1,5 +1,14 @@
 
+/*
+ * This file originates from Kite's AIO control board project.
+ * Author: Kite (Giles Burgess) https://github.com/geebles/
+ * Original auther and sources: https://github.com/tasanakorn/rpi-fbcp
+ * 
+ * THIS HEADER MUST REMAIN WITH THIS FILE AT ALL TIMES
+*/
+
 #include <stdio.h>
+#include <stdbool.h>
 #include <syslog.h>
 #include <fcntl.h>
 #include <linux/fb.h>
@@ -7,20 +16,41 @@
 
 #include <bcm_host.h>
 
+DISPMANX_DISPLAY_HANDLE_T display;
+DISPMANX_MODEINFO_T display_info;
+DISPMANX_RESOURCE_HANDLE_T screen_resource;
+VC_IMAGE_TRANSFORM_T transform;
+uint32_t image_prt;
+VC_RECT_T rect1;
+int ret;
+int fbfd = 0;
+char *fbp = 0;
+
+struct fb_var_screeninfo vinfo;
+struct fb_fix_screeninfo finfo;
+
+// Running loop handler (CTRL+C/SIGINT = stop looping)
+static bool loop_running = 1;
+void loopHandler(int sig) {
+	loop_running = 0;
+}
+
+// Vsync callback handler
+volatile bool vsync_updating = 0;
+void vsync_callback(DISPMANX_UPDATE_HANDLE_T update, void *arg)
+{
+    if (!vsync_updating) {
+        vsync_updating = 1;
+        
+        ret = vc_dispmanx_snapshot(display, screen_resource, 0);
+        vc_dispmanx_resource_read_data(screen_resource, &rect1, fbp, vinfo.xres * vinfo.bits_per_pixel / 8);
+        
+        vsync_updating = 0;
+    }
+}
+
+// Main setup/process logic
 int process() {
-    DISPMANX_DISPLAY_HANDLE_T display;
-    DISPMANX_MODEINFO_T display_info;
-    DISPMANX_RESOURCE_HANDLE_T screen_resource;
-    VC_IMAGE_TRANSFORM_T transform;
-    uint32_t image_prt;
-    VC_RECT_T rect1;
-    int ret;
-    int fbfd = 0;
-    char *fbp = 0;
-
-    struct fb_var_screeninfo vinfo;
-    struct fb_fix_screeninfo finfo;
-
 
     bcm_host_init();
 
@@ -71,19 +101,31 @@ int process() {
     }
 
     vc_dispmanx_rect_set(&rect1, 0, 0, vinfo.xres, vinfo.yres);
+    
+    printf("Registering vsync callback\n");
+    vc_dispmanx_vsync_callback(display, NULL, NULL);
+    vc_dispmanx_vsync_callback(display, vsync_callback, NULL);
+    
+    printf( "Running...\n" );
+    signal(SIGINT, loopHandler);
 
-    while (1) {
-        ret = vc_dispmanx_snapshot(display, screen_resource, 0);
-        vc_dispmanx_resource_read_data(screen_resource, &rect1, fbp, vinfo.xres * vinfo.bits_per_pixel / 8);
-        usleep(25 * 1000);
+    while (loop_running) {
+        //ret = vc_dispmanx_snapshot(display, screen_resource, 0);
+        //vc_dispmanx_resource_read_data(screen_resource, &rect1, fbp, vinfo.xres * vinfo.bits_per_pixel / 8);
+        //usleep(25 * 1000);
+        usleep(1000000);
     }
 
+    printf("Unregistering vsync callback\n");
+    vc_dispmanx_vsync_callback(display, NULL, NULL);
+    
     munmap(fbp, finfo.smem_len);
     close(fbfd);
     ret = vc_dispmanx_resource_delete(screen_resource);
     vc_dispmanx_display_close(display);
 }
 
+// Main setup logic
 int main(int argc, char **argv) {
     setlogmask(LOG_UPTO(LOG_DEBUG));
     openlog("fbcp", LOG_NDELAY | LOG_PID, LOG_USER);
