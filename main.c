@@ -37,13 +37,17 @@ void loopHandler(int sig) {
 
 // Vsync callback handler
 volatile bool vsync_updating = 0;
+volatile bool frame_skip = 0;
 void vsync_callback(DISPMANX_UPDATE_HANDLE_T update, void *arg)
 {
     if (!vsync_updating) {
         vsync_updating = 1;
         
-        ret = vc_dispmanx_snapshot(display, screen_resource, 0);
-        vc_dispmanx_resource_read_data(screen_resource, &rect1, fbp, vinfo.xres * vinfo.bits_per_pixel / 8);
+        if (!frame_skip) {
+            ret = vc_dispmanx_snapshot(display, screen_resource, 0);
+            vc_dispmanx_resource_read_data(screen_resource, &rect1, fbp, vinfo.xres * vinfo.bits_per_pixel / 8);
+        }
+        frame_skip = !frame_skip;
         
         vsync_updating = 0;
     }
