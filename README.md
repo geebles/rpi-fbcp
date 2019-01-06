@@ -1,6 +1,6 @@
 Raspberry Pi Framebuffer Copy
 =============================
-This program used for copy primary framebuffer to secondary framebuffer (eg. FBTFT). It require lastest raspberry pi firmware (> 2013-07-11) to working properly.
+This program is used for copying the primary framebuffer to the secondary framebuffer (eg. FBTFT). It requires the latest Raspberry Pi firmware (> 2013-07-11) to work.
 
 Modifications
 ----------------------------
